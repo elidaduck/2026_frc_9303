@@ -74,7 +74,7 @@ public class Swerve extends SubsystemBase implements Logged {
                   Pose2d initialPosition) {
         this.modules = modules;
         this.m_imu = imu;
-        m_imu.setRotation(new Rotation2d(Math.PI / 2));
+        m_imu.setRotation(new Rotation2d());
 
 
         angleController.enableContinuousInput(-Math.PI, Math.PI);

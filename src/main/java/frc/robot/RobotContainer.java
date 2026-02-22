@@ -4,15 +4,27 @@
 
 package frc.robot;
 
-import frc.robot.Constants.OperatorConstants;
+
+import frc.excalib.control.math.Vector2D;
+import frc.excalib.swerve.Swerve;
 import frc.robot.commands.Autos;
 import frc.robot.commands.ExampleCommand;
 import frc.robot.subsystems.ExampleSubsystem;
+
+import static frc.robot.Constants.SwerveConstants.MAX_OMEGA_RAD_PER_SEC;
+import static frc.robot.Constants.SwerveConstants.MAX_VEL;
+import static frc.robot.Constants.SwerveConstants.configureSwerve;
+
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.InstantCommand;
+import edu.wpi.first.wpilibj2.command.button.CommandPS5Controller;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 import monologue.Monologue;
+import monologue.Annotations.Log;
 import monologue.Logged;
 
 /**
@@ -22,15 +34,17 @@ import monologue.Logged;
  * subsystems, commands, and trigger mappings) should be declared here.
  */
 public class RobotContainer implements Logged{
+  public final Swerve swerve = Constants.SwerveConstants.configureSwerve(Constants.INITIAL_POSE);
   // The robot's subsystems and commands are defined here...
   private final ExampleSubsystem m_exampleSubsystem = new ExampleSubsystem();
 
   // Replace with CommandPS4Controller or CommandJoystick if needed
-  private final CommandXboxController m_driverController =
-      new CommandXboxController(OperatorConstants.kDriverControllerPort);
+    public final CommandPS5Controller primary = new CommandPS5Controller(Constants.PRIMARY_CONTROLLER_PORT);
+
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
+    swerve.resetOdometry(new Pose2d(0,0, new Rotation2d(0)));
     // Configure the trigger bindings
     configureBindings();
   }
@@ -46,12 +60,21 @@ public class RobotContainer implements Logged{
    */
   private void configureBindings() {
     // Schedule `ExampleCommand` when `exampleCondition` changes to `true`
-    new Trigger(m_exampleSubsystem::exampleCondition)
-        .onTrue(new ExampleCommand(m_exampleSubsystem));
+            swerve.setDefaultCommand(
+                swerve.driveCommand(
+                        () -> new Vector2D(
+                                applyDeadband(-primary.getLeftY()) * MAX_VEL,
+                                applyDeadband(-primary.getLeftX()) * MAX_VEL),
+                        () -> applyDeadband(primary.getRightX()) *
+                                MAX_OMEGA_RAD_PER_SEC,
+                        () -> true
+                )
+        );
+
+        primary.PS().onTrue(new InstantCommand(() -> swerve.resetOdometry(new Pose2d())).ignoringDisable(true));
 
     // Schedule `exampleMethodCommand` when the Xbox controller's B button is pressed,
     // cancelling on release.
-    m_driverController.b().whileTrue(m_exampleSubsystem.exampleMethodCommand());
   }
 
   /**
@@ -63,4 +86,9 @@ public class RobotContainer implements Logged{
     // An example command will be run in autonomous
     return Autos.exampleAuto(m_exampleSubsystem);
   }
+
+  public double applyDeadband(double val) {
+    return Math.abs(val) < 0.09 ? 0 : val;
+  }
+
 }
